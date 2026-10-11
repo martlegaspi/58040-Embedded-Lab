@@ -1,0 +1,33 @@
+#define TRIG_PIN 9
+#define ECHO_PIN 8
+#define PIR_PIN  2
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(TRIG_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
+  pinMode(PIR_PIN, INPUT);
+}
+
+void loop() {
+  // Trigger Ultrasonic Pulse
+  digitalWrite(TRIG_PIN, LOW);
+  delayMicroseconds(2);
+  digitalWrite(TRIG_PIN, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIG_PIN, LOW);
+
+  // Read Echo travel time (microseconds) and calculate distance in cm
+  long duration = pulseIn(ECHO_PIN, HIGH, 30000); // 30ms timeout
+  float distance_cm = duration * 0.0343 / 2.0;
+
+  // Read PIR sensor
+  int motion = digitalRead(PIR_PIN);
+
+  // Send CSV stream: distance,motion
+  Serial.print(distance_cm);
+  Serial.print(",");
+  Serial.println(motion);
+
+  delay(1000); // 1.0 second sampling interval
+}
