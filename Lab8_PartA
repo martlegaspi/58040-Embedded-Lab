@@ -1,0 +1,120 @@
+import collections
+import threading
+import time
+import tkinter as tk
+from tkinter import ttk
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.figure import Figure
+import serial
+
+
+buffer = collections.deque(maxlen=200)
+
+
+def acquire():
+    try:
+        ser = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
+        time.sleep(2)
+        while True:
+            line = ser.readline().decode('utf-8', 'ignore').strip()
+            parts = line.split(',')
+            if len(parts) == 2:
+                try:
+                    dist = float(parts[0])
+                    motion = int(parts[1])
+                    ts = time.strftime('%H:%M:%S')
+                    buffer.append((ts, dist, motion))
+                except ValueError:
+                    pass
+    except Exception as e:
+        print(f"Serial acquisition error: {e}")
+
+
+threading.Thread(target=acquire, daemon=True).start()
+
+
+root = tk.Tk()
+root.title('Midterm Integration Dashboard - Lab 8 (With Scrollable Table)')
+root.geometry('800x650')
+
+
+# Frame for Table View
+table_frame = ttk.LabelFrame(root, text=" Live Sensor Readings ")
+table_frame.pack(fill="both", expand=True, padx=10, pady=5)
+
+
+# 1. Create a container frame to hold both Treeview and Scrollbar side-by-side
+tree_container = ttk.Frame(table_frame)
+tree_container.pack(fill="both", expand=True, padx=5, pady=5)
+
+
+columns = ('timestamp', 'distance', 'motion')
+tree = ttk.Treeview(tree_container, columns=columns, show='headings', height=6)
+tree.heading('timestamp', text='Timestamp')
+tree.heading('distance', text='Distance (cm)')
+tree.heading('motion', text='Motion Flag')
+tree.column('timestamp', width=250, anchor='center')
+tree.column('distance', width=150, anchor='center')
+tree.column('motion', width=100, anchor='center')
+
+
+# 2. Add Vertical Scrollbar
+scrollbar = ttk.Scrollbar(tree_container, orient="vertical", command=tree.yview)
+tree.configure(yscrollcommand=scrollbar.set)
+
+
+tree.pack(side="left", fill="both", expand=True)
+scrollbar.pack(side="right", fill="y")
+
+
+# Chart Frame
+plot_frame = ttk.LabelFrame(root, text=" Live Distance Chart ")
+plot_frame.pack(fill="both", expand=True, padx=10, pady=5)
+
+
+fig = Figure(figsize=(6, 3), dpi=100)
+ax = fig.add_subplot(111)
+canvas = FigureCanvasTkAgg(fig, master=plot_frame)
+canvas.get_tk_widget().pack(fill="both", expand=True, padx=5, pady=5)
+
+
+def refresh():
+    if buffer:
+        data_snapshot = list(buffer)
+        
+        # Save current scroll position before refreshing data
+        y_scroll_pos = tree.yview()
+        
+        # 1. Update Table with ALL records stored in the deque (up to 200)
+        for item in tree.get_children():
+            tree.delete(item)
+            
+        for ts, dist, motion in data_snapshot:
+            tree.insert('', tk.END, values=(ts, dist, motion))
+            
+        # Restore scroll position if user scrolled up to check history
+        # (If user hasn't scrolled, auto-scroll to latest bottom row)
+        if y_scroll_pos[1] == 1.0:
+            tree.yview_moveto(1.0)
+        else:
+            tree.yview_moveto(y_scroll_pos[0])
+            
+        # 2. Update Matplotlib Plot (Last 50 records)
+        ax.clear()
+        plot_records = data_snapshot[-50:]
+        distances = [item[1] for item in plot_records]
+        
+        ax.plot(distances, marker='o', color='b', label='Distance (cm)')
+        ax.set_title('Real-Time Distance Measurements (Live Buffer)')
+        ax.set_xlabel('Sample Index')
+        ax.set_ylabel('Distance (cm)')
+        ax.grid(True)
+        ax.legend(loc='upper right')
+        canvas.draw()
+
+
+    root.after(1000, refresh)
+
+
+refresh()
+root.mainloop()
