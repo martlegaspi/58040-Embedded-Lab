@@ -3,7 +3,7 @@ import socket
 import time
 
 # --- Configuration ---
-PI_IP = '192.168.1.50'  # Replace with your Pi's actual IP address from hostname -I
+PI_IP = '192.168.177.101'  # Replace with your Pi's actual IP address from hostname -I
 PORT = 5000
 
 def run_client():
