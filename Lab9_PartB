@@ -1,0 +1,43 @@
+# Lab 9 TCP Server on Raspberry Pi
+import socket
+import time
+import random
+
+HOST = '0.0.0.0'  # Listen on all network interfaces
+PORT = 5000       # Port to listen on
+
+def start_server():
+    # Create a TCP/IP socket
+    srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    
+    # Bind socket to port and listen for incoming connections
+    srv.bind((HOST, PORT))
+    srv.listen(1)
+    print(f"[SERVER] Listening for incoming connection on port {PORT}...")
+    
+    conn, addr = srv.accept()
+    print(f"[SERVER] Connection established from client: {addr}")
+    
+    try:
+        while True:
+            # Simulate or fetch live sensor readings (e.g., ADC/Ultrasonic/DHT reading)
+            sensor_value = random.randint(0, 1023)
+            current_time = time.time()
+            
+            # Format payload: timestamp, sensor_value
+            payload = f"{current_time:.3f},{sensor_value}\n"
+            conn.sendall(payload.encode())
+            
+            print(f"[SENT] Timestamp: {current_time:.3f} | Value: {sensor_value}")
+            time.sleep(0.5)  # Transmit every 500 ms
+            
+    except (ConnectionResetError, BrokenPipeError):
+        print("[WARN] Client disconnected.")
+    finally:
+        conn.close()
+        srv.close()
+        print("[SERVER] Socket closed.")
+
+if __name__ == '__main__':
+    start_server()
