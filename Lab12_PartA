@@ -1,0 +1,53 @@
+// Lab 12: Arduino Ultrasonic + PIR Sensor Acquisition & LED Actuator Control
+const int TRIG_PIN = 9;       // Ultrasonic Trigger pin
+const int ECHO_PIN = 10;      // Ultrasonic Echo pin
+const int PIR_PIN = 2;        // PIR Motion Sensor pin
+const int ACTUATOR_PIN = 13;  // LED Actuator pin
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(TRIG_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
+  pinMode(PIR_PIN, INPUT);
+  pinMode(ACTUATOR_PIN, OUTPUT);
+  digitalWrite(ACTUATOR_PIN, LOW);
+}
+
+float readUltrasonicCM() {
+  digitalWrite(TRIG_PIN, LOW);
+  delayMicroseconds(2);
+  digitalWrite(TRIG_PIN, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIG_PIN, LOW);
+
+  // Measure echo pulse duration (timeout after 30 ms)
+  long duration = pulseIn(ECHO_PIN, HIGH, 30000);
+  if (duration == 0) {
+    return -1.0; // Out of range
+  }
+  return (duration * 0.0343) / 2.0;
+}
+
+void loop() {
+  // 1. Check for incoming actuator commands from Raspberry Pi
+  if (Serial.available() > 0) {
+    String cmd = Serial.readStringUntil('\n');
+    cmd.trim();
+    if (cmd == "ON") {
+      digitalWrite(ACTUATOR_PIN, HIGH);
+    } else if (cmd == "OFF") {
+      digitalWrite(ACTUATOR_PIN, LOW);
+    }
+  }
+
+  // 2. Read Ultrasonic (cm) and PIR (0/1) sensors
+  float distanceCM = readUltrasonicCM();
+  int motionVal = digitalRead(PIR_PIN);
+
+  // 3. Transmit CSV payload: "distance,motion"
+  Serial.print(distanceCM, 1);
+  Serial.print(",");
+  Serial.println(motionVal);
+
+  delay(1000); // 1 Hz sampling rate
+}
