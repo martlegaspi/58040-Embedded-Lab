@@ -1,0 +1,20 @@
+# Lab 11: Retrieve the latest 10 records from Firebase on a second device
+import firebase_admin
+from firebase_admin import credentials, db
+from datetime import datetime
+
+cred = credentials.Certificate('serviceAccountKey.json')
+firebase_admin.initialize_app(cred, {
+    'databaseURL': 'https://embedded-lab-11-default-rtdb.asia-southeast1.firebasedatabase.app/'  # Replace with your actual URL
+})
+
+# Query the last 10 records ordered by push key
+rows = db.reference('readings').order_by_key().limit_to_last(10).get()
+
+print("Latest 10 Sensor Records Retrieved from Cloud:\n")
+if rows:
+    for key, rec in rows.items():
+        readable_time = datetime.fromtimestamp(rec['ts']).strftime('%Y-%m-%d %H:%M:%S')
+        print(f"Key: {key} | Time: {readable_time} | Light Value: {rec['light']}")
+else:
+    print("No records found.")
