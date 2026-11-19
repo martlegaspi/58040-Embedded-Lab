@@ -1,0 +1,22 @@
+# Lab 12: Remote Device Monitor & Cloud Actuator Trigger (Ultrasonic + PIR)
+import firebase_admin
+from firebase_admin import credentials, db
+from datetime import datetime
+
+cred = credentials.Certificate('serviceAccountKey.json')
+firebase_admin.initialize_app(cred, {'databaseURL': 'https://embedded-lab-11-default-rtdb.asia-southeast1.firebasedatabase.app/'})
+
+# 1. Fetch latest 5 integrated records from Cloud DB
+rows = db.reference('lab12_readings').order_by_key().limit_to_last(5).get()
+print("=== Latest Remote Telemetry Records ===")
+if rows:
+    for key, rec in rows.items():
+        ts_str = datetime.fromtimestamp(rec['ts']).strftime('%H:%M:%S')
+        pir_text = "DETECTED" if rec['motion'] == 1 else "CLEAR"
+        print(f"[{ts_str}] Distance: {rec['distance_cm']} cm | PIR: {pir_text} | LED: {rec['actuator']}")
+
+# 2. Trigger LED actuator remotely through the cloud
+choice = input("\nTrigger remote LED actuator? (ON / OFF / SKIP): ").strip().upper()
+if choice in ("ON", "OFF"):
+    db.reference('lab12_actuator').set({'state': choice})
+    print(f"Remote command '{choice}' written to Firebase!")
