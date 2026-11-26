@@ -1,11 +1,11 @@
-# Lab 10 Part D: 20-Trial Detection-to-Action Evaluation & Latency Measurement
+# Lab 10 Part D: 20-Trial Detection-to-Action Evaluation (With Buffer Flush)
 import cv2
 import numpy as np
 import serial
 import time
 
 ser = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
-time.sleep(2)  # Allow Arduino serial reset
+time.sleep(2)
 cap = cv2.VideoCapture(0)
 
 TOTAL_TRIALS = 20
@@ -20,7 +20,11 @@ for trial in range(1, TOTAL_TRIALS + 1):
     expected_str = input(f"Trial {trial}/{TOTAL_TRIALS} - Is red object PRESENT? (y/n): ").strip().lower()
     expected = (expected_str == 'y')
 
-    # Start timer right before frame capture & processing
+    # Flush stale buffered frames from the camera queue before timing
+    for _ in range(5):
+        cap.grab()
+
+    # Start timer right before fresh frame capture & processing
     t_start = time.time()
     ok, frame = cap.read()
     if not ok:
@@ -28,11 +32,13 @@ for trial in range(1, TOTAL_TRIALS + 1):
         break
 
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-    mask1 = cv2.inRange(hsv, (0, 120, 70), (10, 255, 255))
-    mask2 = cv2.inRange(hsv, (170, 120, 70), (180, 255, 255))
+    # Slightly wider saturation/value floor (80, 50) to handle indoor lighting
+    mask1 = cv2.inRange(hsv, (0, 80, 50), (10, 255, 255))
+    mask2 = cv2.inRange(hsv, (170, 80, 50), (180, 255, 255))
     mask = cv2.bitwise_or(mask1, mask2)
 
-    detected = cv2.countNonZero(mask) > 500
+    red_pixels = cv2.countNonZero(mask)
+    detected = red_pixels > 500
     ser.write(b'1' if detected else b'0')
 
     # Wait for Arduino ACK to complete the detection-to-action round trip
@@ -50,7 +56,7 @@ for trial in range(1, TOTAL_TRIALS + 1):
         incorrect_count += 1
         outcome = "INCORRECT"
 
-    print(f"  -> Detected: {detected} | Arduino ACK: '{ack}' | Result: {outcome} | Latency: {latency_ms:.2f} ms\n")
+    print(f"  -> Pixels: {red_pixels} | Detected: {detected} | ACK: '{ack}' | Result: {outcome} | Latency: {latency_ms:.2f} ms\n")
 
 # Summary Statistics
 accuracy = (correct_count / TOTAL_TRIALS) * 100.0
