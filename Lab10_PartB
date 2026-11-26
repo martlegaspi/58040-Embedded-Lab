@@ -1,0 +1,42 @@
+# Lab 10: Simple colour detection driving the Arduino (USB Webcam)
+import cv2
+import numpy as np
+import serial
+import time
+
+# 1. Open serial connection to Arduino
+ser = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
+time.sleep(2)  # Wait for Arduino serial reset
+
+# 2. Initialize USB camera
+cap = cv2.VideoCapture(0)
+
+while True:
+    ok, frame = cap.read()
+    if not ok:
+        print("Failed to grab frame.")
+        break
+
+    # 3. Convert BGR frame to HSV colour space and threshold for red
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    mask1 = cv2.inRange(hsv, (0, 120, 70), (10, 255, 255))
+    mask2 = cv2.inRange(hsv, (170, 120, 70), (180, 255, 255))
+    mask = cv2.bitwise_or(mask1, mask2)
+
+    # 4. Check if detected red pixel count exceeds threshold
+    detected = cv2.countNonZero(mask) > 500
+    ser.write(b'1' if detected else b'0')  # Command to Arduino actuator
+
+    # 5. Display live camera feed and binary detection mask
+    status_text = "RED DETECTED (LED ON)" if detected else "NO TARGET (LED OFF)"
+    cv2.putText(frame, status_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+    cv2.imshow('Camera Feed', frame)
+    cv2.imshow('Red Mask', mask)
+
+    # Press Esc (ASCII 27) to quit
+    if cv2.waitKey(1) == 27:
+        break
+
+cap.release()
+cv2.destroyAllWindows()
+ser.close()
