@@ -1,0 +1,21 @@
+// Lab 10 Part C: Arduino Actuator Control (Adapted from Experiment 4)
+const int LED_PIN = 13; // LED + 330-ohm resistor on Pin 13
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(LED_PIN, OUTPUT);
+  digitalWrite(LED_PIN, LOW);
+}
+
+void loop() {
+  if (Serial.available() > 0) {
+    char cmd = Serial.read();
+    if (cmd == '1') {
+      digitalWrite(LED_PIN, HIGH);
+      Serial.println("ACK");
+    } else if (cmd == '0') {
+      digitalWrite(LED_PIN, LOW);
+      Serial.println("ACK");
+    }
+  }
+}
